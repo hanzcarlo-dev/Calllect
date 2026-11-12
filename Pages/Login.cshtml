@@ -1,0 +1,233 @@
+﻿@page
+@model CallLect.Pages.LoginModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Calllect</title>
+
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+            body {
+                min-height: 100vh;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                box-sizing: border-box;
+                background: var(--bg);
+                font-family: "Segoe UI", Arial, sans-serif;
+            }
+
+            .login-wrapper {
+                width: 100%;
+                max-width: 420px;
+            }
+
+            .login-brand {
+                text-align: center;
+                margin-bottom: 25px;
+            }
+
+                .login-brand h1 {
+                    font-size: 38px;
+                    font-weight: 800;
+                    margin: 0;
+                    color: var(--text);
+                }
+
+                    .login-brand h1 span {
+                        color: var(--purple);
+                    }
+
+                .login-brand p {
+                    color: var(--muted);
+                    font-size: 11px;
+                    letter-spacing: 2px;
+                    margin-top: 6px;
+                }
+
+            .login-card {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 12px 35px rgba(40, 25, 70, 0.08);
+            }
+
+                .login-card h2 {
+                    font-size: 23px;
+                    margin: 0 0 8px;
+                    color: var(--text);
+                }
+
+            .login-description {
+                color: var(--muted);
+                margin-bottom: 25px;
+                font-size: 14px;
+            }
+
+            .login-card label {
+                display: block;
+                margin: 16px 0 7px;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            .login-card input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 13px;
+                border: 1px solid var(--border);
+                border-radius: 9px;
+                background: var(--bg);
+                color: var(--text);
+                outline-color: var(--purple);
+            }
+
+                .login-card input:focus {
+                    border-color: var(--purple);
+                }
+
+            .login-button {
+                width: 100%;
+                padding: 13px;
+                margin-top: 22px;
+                border: none;
+                border-radius: 9px;
+                background: var(--purple);
+                color: white;
+                font-weight: 600;
+                font-size: 15px;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+
+                .login-button:hover {
+                    background: var(--purple-dark);
+                }
+
+            .login-error {
+                color: #dc2626;
+                font-size: 13px;
+                margin: 12px 0 0;
+                text-align: center;
+            }
+
+            .login-success {
+                color: #16a34a;
+                font-size: 13px;
+                margin: 12px 0;
+                text-align: center;
+            }
+
+            .register-login {
+                text-align: center;
+                color: var(--muted);
+                font-size: 13px;
+                margin-top: 20px;
+            }
+
+                .register-login a {
+                    color: var(--purple);
+                    font-weight: 600;
+                    text-decoration: none;
+                }
+
+                    .register-login a:hover {
+                        text-decoration: underline;
+                    }
+
+            .login-footer {
+                text-align: center;
+                color: var(--muted);
+                font-size: 12px;
+                margin-top: 22px;
+            }
+
+            body.dark-mode .login-card {
+                box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+            }
+
+            @@media (max-width: 480px) {
+                .login-card {
+                    padding: 24px;
+                }
+            }
+    </style>
+</head>
+
+<body>
+    <div class="login-wrapper">
+
+        <div class="login-brand">
+            <h1>Call-lect<span>.</span></h1>
+            <p>YOUR DIGITAL PHONEBOOK</p>
+        </div>
+
+        <div class="login-card">
+
+            <h2>Welcome Back</h2>
+
+            <p class="login-description">
+                Sign in to manage your contacts.
+            </p>
+
+            @if (TempData["RegistrationMessage"] != null)
+            {
+                <p class="login-success">
+                    @TempData["RegistrationMessage"]
+                </p>
+            }
+
+            <form method="post">
+
+                <label>Username or Email</label>
+                <input asp-for="Username"
+                       placeholder="Enter your username or email"
+                       autocomplete="username"
+                       required />
+
+                <label>Password</label>
+                <input asp-for="Password"
+                       type="password"
+                       placeholder="Enter your password"
+                       autocomplete="current-password"
+                       required />
+
+                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+                {
+                    <p class="login-error">
+                        @Model.ErrorMessage
+                    </p>
+                }
+
+                <button type="submit" class="login-button">
+                    Login to Calllect
+                </button>
+
+            </form>
+
+            <div class="register-login">
+                Don't have an account?
+                <a asp-page="/Register">Create Account</a>
+            </div>
+
+        </div>
+
+        <div class="login-footer">
+            Calllect. Your contacts, organized in one place.
+        </div>
+
+    </div>
+</body>
+</html>

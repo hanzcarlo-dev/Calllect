@@ -1,0 +1,926 @@
+﻿@page
+@model CallLect.Pages.IndexModel
+
+@{
+    ViewData["Title"] = "Call-lect";
+
+    var selectedGroup = Model.Categories
+        .FirstOrDefault(x => x.Id == Model.CategoryId);
+}
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">Call-lect<span>.</span></div>
+        <div class="brand-caption">YOUR DIGITAL PHONEBOOK</div>
+
+        <nav>
+            <a class="@(Model.ViewMode == "all" && Model.CategoryId == 0 ? "active" : "")"
+               href="@Url.Page("/Index")">
+                <span>▦</span> All Contacts
+            </a>
+
+            <a class="@(Model.ViewMode == "favorites" ? "active" : "")"
+               href="@Url.Page("/Index", new { ViewMode = "favorites" })">
+                <span>★</span> Favorites
+            </a>
+
+            <div class="nav-label">MY GROUPS</div>
+
+            @foreach (var group in Model.Categories)
+            {
+                <a href="@Url.Page("/Index", new { CategoryId = group.Id, ViewMode = "all" })"
+                   class="@(Model.CategoryId == group.Id && Model.ViewMode == "all" ? "active" : "")">
+                    <span class="group-dot" style="background:@group.Color"></span>
+                    @group.Name
+                </a>
+            }
+
+            <div class="nav-label">TOOLS</div>
+
+            <a class="@(Model.ViewMode == "deleted" ? "active" : "")"
+               href="@Url.Page("/Index", new { ViewMode = "deleted" })">
+                <span>▤</span> Recently Deleted
+            </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <button type="button" id="themeToggle">☾ Toggle Theme</button>
+            <a asp-page="/Logout" class="logout-button">⇥ Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-area">
+        <header class="topbar">
+            <div>
+                @if (Model.ViewMode == "deleted")
+                {
+                    <h1>Recently Deleted</h1>
+                    <p>Restore or permanently delete contacts.</p>
+                }
+                else if (Model.ViewMode == "favorites")
+                {
+                    <h1>Favorites</h1>
+                    <p>Your most important contacts.</p>
+                }
+                else if (Model.CategoryId > 0)
+                {
+                    <h1>@(selectedGroup?.Name ?? "Group Not Found")</h1>
+                    <p>Contacts assigned to this group.</p>
+                }
+                else
+                {
+                    <h1>All Contacts</h1>
+                    <p>Manage your contacts in one place.</p>
+                }
+            </div>
+
+            <div class="top-actions">
+                <form method="post" asp-page-handler="Export">
+                    <button class="secondary-button" type="submit">↓ Export CSV</button>
+                </form>
+            </div>
+        </header>
+
+        @if (TempData["Message"] != null)
+        {
+            <div class="notice">@TempData["Message"]</div>
+        }
+
+        <section class="toolbar">
+            <form method="get" class="search-form" id="contactSearchForm">
+                <input type="hidden" name="ViewMode" value="@Model.ViewMode" />
+                <input type="hidden" name="CategoryId" value="@Model.CategoryId" />
+
+                <input type="search"
+                       id="contactSearchInput"
+                       name="Search"
+                       value="@Model.Search"
+                       placeholder="Search contact name..."
+                       autocomplete="off"
+                       aria-label="Search contact name" />
+
+                <button type="submit" id="contactSearchButton">Search</button>
+            </form>
+
+            <div id="contactLiveSuggestions"
+                 class="contact-live-suggestions"
+                 aria-live="polite"
+                 hidden></div>
+        </section>
+
+        <div id="contactSearchModal"
+             class="contact-search-overlay"
+             aria-hidden="true">
+            <div class="contact-search-dialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="contactSearchTitle">
+                <div class="contact-search-heading">
+                    <div>
+                        <h2 id="contactSearchTitle">Search Contacts</h2>
+                        <p>Choose a contact to open their details.</p>
+                    </div>
+                    <button type="button"
+                            id="closeContactSearch"
+                            class="contact-search-close"
+                            aria-label="Close search">
+                        ×
+                    </button>
+                </div>
+                <div id="contactSearchResults"
+                     class="contact-search-results"
+                     aria-live="polite">
+                    <div class="contact-search-message">Click Search to find a contact.</div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+                    .contact-search-overlay {
+                        position: fixed;
+                        inset: 0;
+                        z-index: 9999;
+                        display: none;
+                        align-items: flex-start;
+                        justify-content: center;
+                        padding: 14vh 20px 30px;
+                        background: rgba(15, 10, 28, 0.58);
+                        backdrop-filter: blur(4px);
+                    }
+
+                        .contact-search-overlay.show {
+                            display: flex;
+                        }
+
+                    .contact-search-dialog {
+                        width: min(560px, 100%);
+                        max-height: 70vh;
+                        overflow: hidden;
+                        background: var(--panel, #ffffff);
+                        color: var(--text, #29243b);
+                        border: 1px solid var(--border, #e9e3f2);
+                        border-radius: 18px;
+                        box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+                    }
+
+                    .contact-search-heading {
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        gap: 16px;
+                        padding: 20px 22px 16px;
+                        border-bottom: 1px solid var(--border, #e9e3f2);
+                    }
+
+                        .contact-search-heading h2 {
+                            margin: 0 0 5px;
+                            font-size: 19px;
+                        }
+
+                        .contact-search-heading p {
+                            margin: 0;
+                            color: var(--muted, #817a91);
+                            font-size: 13px;
+                        }
+
+                    .contact-search-close {
+                        border: 0;
+                        background: transparent;
+                        color: var(--muted, #817a91);
+                        font-size: 28px;
+                        line-height: 1;
+                        cursor: pointer;
+                    }
+
+                    .contact-search-results {
+                        max-height: calc(70vh - 85px);
+                        overflow-y: auto;
+                        padding: 10px;
+                    }
+
+                    .contact-search-result {
+                        display: block;
+                        width: 100%;
+                        padding: 14px 15px;
+                        border: 0;
+                        border-radius: 11px;
+                        background: transparent;
+                        color: inherit;
+                        text-align: left;
+                        cursor: pointer;
+                        transition: background 0.15s ease;
+                    }
+
+                        .contact-search-result:hover,
+                        .contact-search-result:focus {
+                            outline: none;
+                            background: rgba(112, 72, 189, 0.11);
+                        }
+
+                    .contact-search-result-name {
+                        display: block;
+                        font-weight: 600;
+                        font-size: 15px;
+                    }
+
+                    .contact-search-result-hint {
+                        display: block;
+                        margin-top: 4px;
+                        color: var(--muted, #817a91);
+                        font-size: 12px;
+                    }
+
+                    .contact-search-highlight {
+                        color: var(--purple, #7048bd);
+                        background: rgba(112, 72, 189, 0.16);
+                        border-radius: 3px;
+                        font-weight: 800;
+                    }
+
+                    .contact-search-message {
+                        padding: 22px 15px;
+                        color: var(--muted, #817a91);
+                        text-align: center;
+                        font-size: 14px;
+                    }
+
+                    .contact-search-target {
+                        outline: 2px solid var(--purple, #7048bd);
+                        outline-offset: 4px;
+                        border-radius: 12px;
+                    }
+
+                    .contact-live-suggestions {
+                        display: block;
+                        margin-top: 10px;
+                        width: 100%;
+                        background: var(--panel, #fff);
+                        border: 1px solid var(--border, #e9e3f2);
+                        border-radius: 13px;
+                        box-shadow: 0 10px 28px rgba(35, 20, 60, .08);
+                        overflow: hidden;
+                    }
+
+                        .contact-live-suggestions[hidden] {
+                            display: none;
+                        }
+
+                    .contact-live-item {
+                        display: block;
+                        width: 100%;
+                        padding: 13px 16px;
+                        border: 0;
+                        border-bottom: 1px solid var(--border, #e9e3f2);
+                        background: transparent;
+                        color: var(--text, #29243b);
+                        text-align: left;
+                        cursor: pointer;
+                    }
+
+                        .contact-live-item:last-child {
+                            border-bottom: 0;
+                        }
+
+                        .contact-live-item:hover,
+                        .contact-live-item:focus {
+                            outline: none;
+                            background: rgba(112, 72, 189, .10);
+                        }
+
+                    .contact-live-name {
+                        display: block;
+                        font-weight: 650;
+                    }
+
+                    .contact-live-hint {
+                        display: block;
+                        margin-top: 3px;
+                        color: var(--muted, #817a91);
+                        font-size: 12px;
+                    }
+
+                    .contact-live-message {
+                        padding: 17px;
+                        color: var(--muted, #817a91);
+                        text-align: center;
+                        font-size: 14px;
+                    }
+
+                    @@media (max-width: 600px) {
+                        .contact-search-overlay {
+                            padding: 10vh 12px 20px;
+                        }
+
+                        .contact-search-dialog {
+                            max-height: 78vh;
+                        }
+
+                        .contact-search-results {
+                            max-height: calc(78vh - 85px);
+                        }
+                    }
+        </style>
+
+        @if (Model.ViewMode != "deleted")
+        {
+            <div class="content-grid">
+                <section class="panel add-panel">
+                    <h2>Add New Contact</h2>
+
+                    <form method="post" asp-page-handler="Add">
+                        <label>Full Name *</label>
+                        <input asp-for="Input.FullName" placeholder="Full name" required />
+
+                        <label>Phone Number *</label>
+                        <div class="phone-input-group">
+                            <select name="CountryCode" class="country-code">
+                                <option value="+63" selected>+63 (PH)</option>
+                                <option value="+1">+1 (US/CA)</option>
+                                <option value="+44">+44 (UK)</option>
+                                <option value="+61">+61 (AU)</option>
+                                <option value="+65">+65 (SG)</option>
+                                <option value="+81">+81 (JP)</option>
+                                <option value="+82">+82 (KR)</option>
+                                <option value="+86">+86 (CN)</option>
+                                <option value="+91">+91 (IN)</option>
+                                <option value="+971">+971 (UAE)</option>
+                            </select>
+
+                            <input asp-for="Input.PhoneNumber"
+                                   class="phone-number-input"
+                                   placeholder="9123456789"
+                                   maxlength="11"
+                                   minlength="10"
+                                   inputmode="numeric"
+                                   pattern="[0-9]{10,11}"
+                                   title="Enter 10 to 11 digits only."
+                                   required />
+                        </div>
+                        <small class="field-hint">Enter 10 to 11 digits without the country code.</small>
+
+                        <label>Additional Phone Numbers</label>
+                        <textarea asp-for="Input.AdditionalPhones"
+                                  placeholder="Other phone numbers"></textarea>
+
+                        <label>Email Address</label>
+                        <input asp-for="Input.Email" type="email" placeholder="Email address" />
+
+                        <label>Notes</label>
+                        <textarea asp-for="Input.Notes" placeholder="Additional notes"></textarea>
+
+                        <label>Assign Groups</label>
+                        <div class="group-checkboxes">
+                            @foreach (var group in Model.Categories)
+                            {
+                                <label class="check-label">
+                                    <input type="checkbox"
+                                           name="SelectedCategoryIds"
+                                           value="@group.Id" />
+                                    @group.Name
+                                </label>
+                            }
+                        </div>
+
+                        <button type="submit" class="primary-button">+ Save Contact</button>
+                    </form>
+                </section>
+
+                <section class="panel group-panel">
+                    <h2>Create Custom Group</h2>
+
+                    <form method="post" asp-page-handler="AddGroup">
+                        <label>Group Name</label>
+                        <input name="GroupName" placeholder="Enter group name" required />
+
+                        <label>Group Color</label>
+                        <input type="color" name="GroupColor" value="#7048bd" />
+
+                        <button type="submit" class="secondary-button">+ Add Group</button>
+                    </form>
+
+                    <h3>Manage Custom Groups</h3>
+
+                    @foreach (var group in Model.Categories.Where(x => !x.IsDefault))
+                    {
+                        <div class="group-manage">
+                            <span class="group-dot" style="background:@group.Color"></span>
+                            <span>@group.Name</span>
+
+                            <form method="post" asp-page-handler="EditGroup" class="inline-form">
+                                <input type="hidden" name="GroupId" value="@group.Id" />
+                                <input name="GroupName" value="@group.Name" required />
+                                <input type="color" name="GroupColor" value="@group.Color" />
+                                <button type="submit">Save</button>
+                            </form>
+
+                            <form method="post" asp-page-handler="DeleteGroup">
+                                <input type="hidden" name="id" value="@group.Id" />
+                                <button class="danger-link"
+                                        type="submit"
+                                        onclick="return confirm('Delete this group?')">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </section>
+            </div>
+        }
+
+        <section class="panel contacts-panel">
+            <div class="section-heading">
+                <div>
+                    <h2>
+                        @if (Model.ViewMode == "deleted")
+                        {
+                            @:Deleted Contacts
+                        }
+                        else if (Model.ViewMode == "favorites")
+                        {
+                            @:My Favorites
+                        }
+                        else if (Model.CategoryId > 0)
+                        {
+                            @(selectedGroup?.Name ?? "Group Not Found")
+                        }
+                        else
+                        {
+                            @:My Contacts
+                        }
+                    </h2>
+                    <p>@Model.Contacts.Count contact(s)</p>
+                </div>
+            </div>
+
+            @if (Model.Contacts.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">▤</div>
+                    <h3>No contacts found</h3>
+                    <p>
+                        @if (Model.CategoryId > 0 && selectedGroup != null)
+                        {
+                            @:There are no contacts in @selectedGroup.Name yet.
+                        }
+                        else
+                        {
+                            @:Your contact list is empty.
+                        }
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="contact-list">
+                    @foreach (var contact in Model.Contacts)
+                    {
+                        <article class="contact-card" id="contact-@contact.Id">
+                            <div class="contact-avatar">
+                                @contact.FullName.Substring(0, 1).ToUpper()
+                            </div>
+
+                            <div class="contact-info">
+                                <h3>@contact.FullName</h3>
+                                <p>☎ @contact.PhoneNumber</p>
+
+                                @if (!string.IsNullOrWhiteSpace(contact.AdditionalPhones))
+                                {
+                                    <p>Additional: @contact.AdditionalPhones</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(contact.Email))
+                                {
+                                    <p>✉ @contact.Email</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(contact.Notes))
+                                {
+                                    <p>@contact.Notes</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(contact.GroupNames))
+                                {
+                                    <small>Groups: @contact.GroupNames</small>
+                                }
+                            </div>
+
+                            <div class="contact-actions">
+                                @if (Model.ViewMode == "deleted")
+                                {
+                                    <form method="post" asp-page-handler="Restore">
+                                        <input type="hidden" name="id" value="@contact.Id" />
+                                        <button type="submit" class="secondary-button">Restore</button>
+                                    </form>
+
+                                    <form method="post" asp-page-handler="PermanentDelete">
+                                        <input type="hidden" name="id" value="@contact.Id" />
+                                        <button type="submit"
+                                                class="danger-button"
+                                                onclick="return confirm('Permanently delete this contact?')">
+                                            Delete Forever
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="Favorite">
+                                        <input type="hidden" name="id" value="@contact.Id" />
+                                        <button type="submit" class="star-button">
+                                            @(contact.IsFavorite ? "★" : "☆")
+                                        </button>
+                                    </form>
+
+                                    <details class="edit-details">
+                                        <summary>Edit</summary>
+
+                                        <form method="post" asp-page-handler="Edit" class="edit-form">
+                                            <input type="hidden" name="Input.Id" value="@contact.Id" />
+
+                                            <label>Full Name</label>
+                                            <input name="Input.FullName" value="@contact.FullName" required />
+
+                                            <label>Phone Number</label>
+                                            <div class="phone-input-group">
+                                                <select name="CountryCode" class="country-code">
+                                                    <option value="+63" selected="@(contact.CountryCode == "+63")">+63 (PH)</option>
+                                                    <option value="+1" selected="@(contact.CountryCode == "+1")">+1 (US/CA)</option>
+                                                    <option value="+44" selected="@(contact.CountryCode == "+44")">+44 (UK)</option>
+                                                    <option value="+61" selected="@(contact.CountryCode == "+61")">+61 (AU)</option>
+                                                    <option value="+65" selected="@(contact.CountryCode == "+65")">+65 (SG)</option>
+                                                    <option value="+81" selected="@(contact.CountryCode == "+81")">+81 (JP)</option>
+                                                    <option value="+82" selected="@(contact.CountryCode == "+82")">+82 (KR)</option>
+                                                    <option value="+86" selected="@(contact.CountryCode == "+86")">+86 (CN)</option>
+                                                    <option value="+91" selected="@(contact.CountryCode == "+91")">+91 (IN)</option>
+                                                    <option value="+971" selected="@(contact.CountryCode == "+971")">+971 (UAE)</option>
+                                                </select>
+
+                                                <input name="Input.PhoneNumber"
+                                                       class="phone-number-input"
+                                                       value="@contact.LocalPhoneNumber"
+                                                       maxlength="11"
+                                                       minlength="10"
+                                                       inputmode="numeric"
+                                                       pattern="[0-9]{10,11}"
+                                                       required />
+                                            </div>
+
+                                            <label>Additional Phones</label>
+                                            <textarea name="Input.AdditionalPhones">@contact.AdditionalPhones</textarea>
+
+                                            <label>Email</label>
+                                            <input name="Input.Email" type="email" value="@contact.Email" />
+
+                                            <label>Notes</label>
+                                            <textarea name="Input.Notes">@contact.Notes</textarea>
+
+                                            <label>Groups</label>
+                                            @foreach (var group in Model.Categories)
+                                            {
+                                                <label class="check-label">
+                                                    <input type="checkbox"
+                                                           name="SelectedCategoryIds"
+                                                           value="@group.Id" />
+                                                    @group.Name
+                                                </label>
+                                            }
+
+                                            <button type="submit" class="primary-button">Save Changes</button>
+                                        </form>
+                                    </details>
+
+                                    <form method="post" asp-page-handler="Delete">
+                                        <input type="hidden" name="id" value="@contact.Id" />
+                                        <button type="submit"
+                                                class="danger-button"
+                                                onclick="return confirm('Move this contact to Recently Deleted?')">
+                                            Delete
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        @if (Model.ViewMode != "deleted")
+        {
+            <section class="panel import-panel">
+                <h2>CSV Import</h2>
+                <p>Import contacts from a CSV file.</p>
+
+                <form method="post"
+                      asp-page-handler="Import"
+                      enctype="multipart/form-data">
+                    <input type="file" name="CsvFile" accept=".csv" required />
+                    <button type="submit" class="secondary-button">Import CSV</button>
+                </form>
+            </section>
+        }
+    </main>
+</div>
+
+@section Scripts {
+    <script src="~/js/site.js"></script>
+    <script>
+        document.querySelectorAll(".phone-number-input").forEach(function (field) {
+            field.addEventListener("input", function () {
+                this.value = this.value.replace(/[^0-9]/g, "").slice(0, 11);
+            });
+        });
+
+        (function () {
+            const searchForm = document.getElementById("contactSearchForm");
+            const searchInput = document.getElementById("contactSearchInput");
+            const searchButton = document.getElementById("contactSearchButton");
+            const modal = document.getElementById("contactSearchModal");
+            const resultsContainer = document.getElementById("contactSearchResults");
+            const closeButton = document.getElementById("closeContactSearch");
+            const liveSuggestions = document.getElementById("contactLiveSuggestions");
+            const searchUrl = '@Url.Page("/Index", "SearchContacts")';
+            const indexUrl = '@Url.Page("/Index")';
+
+            if (!searchForm || !searchInput || !searchButton || !modal || !resultsContainer || !closeButton || !liveSuggestions) {
+                return;
+            }
+
+            let activeRequest = null;
+            let liveRequest = null;
+            let liveTimer = null;
+
+            function openModal() {
+                modal.classList.add("show");
+                modal.setAttribute("aria-hidden", "false");
+            }
+
+            function closeModal() {
+                modal.classList.remove("show");
+                modal.setAttribute("aria-hidden", "true");
+
+                if (activeRequest) {
+                    activeRequest.abort();
+                    activeRequest = null;
+                }
+            }
+
+            function showMessage(message) {
+                resultsContainer.replaceChildren();
+
+                const messageElement = document.createElement("div");
+                messageElement.className = "contact-search-message";
+                messageElement.textContent = message;
+                resultsContainer.appendChild(messageElement);
+            }
+
+            function addHighlightedName(container, fullName, typedText) {
+                const nameElement = document.createElement("span");
+                nameElement.className = "contact-search-result-name";
+
+                const matchingPart = fullName.substring(0, typedText.length);
+                const remainingPart = fullName.substring(typedText.length);
+
+                const highlightedPart = document.createElement("span");
+                highlightedPart.className = "contact-search-highlight";
+                highlightedPart.textContent = matchingPart;
+
+                nameElement.appendChild(highlightedPart);
+                nameElement.appendChild(document.createTextNode(remainingPart));
+                container.appendChild(nameElement);
+            }
+
+            function displayResults(contacts, typedText) {
+                resultsContainer.replaceChildren();
+
+                if (!contacts || contacts.length === 0) {
+                    showMessage("Contact does not exist.");
+                    return;
+                }
+
+                contacts.forEach(function (contact) {
+                    const resultButton = document.createElement("button");
+                    resultButton.type = "button";
+                    resultButton.className = "contact-search-result";
+
+                    addHighlightedName(resultButton, contact.fullName, typedText);
+
+                    const hint = document.createElement("span");
+                    hint.className = "contact-search-result-hint";
+                    hint.textContent = "Open contact";
+                    resultButton.appendChild(hint);
+
+                    resultButton.addEventListener("click", function () {
+                        const destination = indexUrl
+                            + "?ViewMode=all&CategoryId=0&Search="
+                            + encodeURIComponent(contact.fullName)
+                            + "#contact-" + contact.id;
+
+                        window.location.href = destination;
+                    });
+
+                    resultsContainer.appendChild(resultButton);
+                });
+            }
+
+            function showLiveMessage(message) {
+                liveSuggestions.replaceChildren();
+
+                const messageElement = document.createElement("div");
+                messageElement.className = "contact-live-message";
+                messageElement.textContent = message;
+                liveSuggestions.appendChild(messageElement);
+                liveSuggestions.hidden = false;
+            }
+
+            function displayLiveSuggestions(contacts, typedText) {
+                liveSuggestions.replaceChildren();
+
+                if (!contacts || contacts.length === 0) {
+                    showLiveMessage("Contact does not exist.");
+                    return;
+                }
+
+                contacts.forEach(function (contact) {
+                    const item = document.createElement("button");
+                    item.type = "button";
+                    item.className = "contact-live-item";
+
+                    const name = document.createElement("span");
+                    name.className = "contact-live-name";
+
+                    const matchingPart = document.createElement("span");
+                    matchingPart.className = "contact-search-highlight";
+                    matchingPart.textContent = contact.fullName.substring(0, typedText.length);
+
+                    name.appendChild(matchingPart);
+                    name.appendChild(document.createTextNode(contact.fullName.substring(typedText.length)));
+                    item.appendChild(name);
+
+                    const hint = document.createElement("span");
+                    hint.className = "contact-live-hint";
+                    hint.textContent = "Click to open contact";
+                    item.appendChild(hint);
+
+                    item.addEventListener("click", function () {
+                        window.location.href = indexUrl
+                            + "?ViewMode=all&CategoryId=0&Search="
+                            + encodeURIComponent(contact.fullName)
+                            + "#contact-" + contact.id;
+                    });
+
+                    liveSuggestions.appendChild(item);
+                });
+
+                liveSuggestions.hidden = false;
+            }
+
+            async function updateLiveSuggestions() {
+                const typedText = searchInput.value.trim();
+
+                if (liveRequest) {
+                    liveRequest.abort();
+                    liveRequest = null;
+                }
+
+                if (typedText.length === 0) {
+                    liveSuggestions.hidden = true;
+                    liveSuggestions.replaceChildren();
+                    return;
+                }
+
+                showLiveMessage("Searching contacts...");
+                liveRequest = new AbortController();
+                const request = liveRequest;
+
+                try {
+                    const response = await fetch(
+                        searchUrl + "&term=" + encodeURIComponent(typedText),
+                        {
+                            method: "GET",
+                            headers: { "Accept": "application/json" },
+                            credentials: "same-origin",
+                            signal: request.signal
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Search request failed: " + response.status);
+                    }
+
+                    const contacts = await response.json();
+
+                    if (liveRequest !== request || searchInput.value.trim() !== typedText) {
+                        return;
+                    }
+
+                    displayLiveSuggestions(contacts, typedText);
+                } catch (error) {
+                    if (error.name !== "AbortError") {
+                        showLiveMessage("Unable to search contacts. Please try again.");
+                        console.error("Calllect live search error:", error);
+                    }
+                }
+            }
+
+            searchInput.addEventListener("input", function () {
+                clearTimeout(liveTimer);
+
+                if (liveRequest) {
+                    liveRequest.abort();
+                    liveRequest = null;
+                }
+
+                liveTimer = setTimeout(updateLiveSuggestions, 200);
+            });
+
+            async function searchContacts(typedText) {
+                openModal();
+                showMessage("Searching contacts...");
+
+                if (activeRequest) {
+                    activeRequest.abort();
+                }
+
+                activeRequest = new AbortController();
+                const request = activeRequest;
+
+                try {
+                    const response = await fetch(
+                        searchUrl + "?term=" + encodeURIComponent(typedText),
+                        {
+                            method: "GET",
+                            headers: { "Accept": "application/json" },
+                            signal: request.signal
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Search request failed.");
+                    }
+
+                    const contacts = await response.json();
+
+                    if (activeRequest !== request) {
+                        return;
+                    }
+
+                    displayResults(contacts, typedText);
+                } catch (error) {
+                    if (error.name !== "AbortError") {
+                        showMessage("Unable to search contacts. Please try again.");
+                    }
+                }
+            }
+
+            // Prevent Enter from opening the modal. Only the Search button opens it.
+            searchForm.addEventListener("submit", function (event) {
+                event.preventDefault();
+            });
+
+            searchButton.addEventListener("click", function () {
+                const typedText = searchInput.value.trim();
+
+                if (typedText.length === 0) {
+                    openModal();
+                    showMessage("Please enter a contact name to search.");
+                    searchInput.focus();
+                    return;
+                }
+
+                searchContacts(typedText);
+            });
+
+            closeButton.addEventListener("click", closeModal);
+
+            modal.addEventListener("click", function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && modal.classList.contains("show")) {
+                    closeModal();
+                }
+            });
+
+            window.addEventListener("load", function () {
+                if (window.location.hash.startsWith("#contact-")) {
+                    const selectedContact = document.querySelector(window.location.hash);
+
+                    if (selectedContact) {
+                        selectedContact.classList.add("contact-search-target");
+                        selectedContact.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center"
+                        });
+
+                        setTimeout(function () {
+                            selectedContact.classList.remove("contact-search-target");
+                        }, 2500);
+                    }
+                }
+            });
+        })();
+    </script>
+}

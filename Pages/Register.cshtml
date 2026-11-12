@@ -1,0 +1,214 @@
+﻿@page
+@model CallLect.Pages.RegisterModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register | Calllect</title>
+
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+            body {
+                min-height: 100vh;
+                margin: 0;
+                padding: 25px 20px;
+                box-sizing: border-box;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: var(--bg);
+                font-family: "Segoe UI", Arial, sans-serif;
+            }
+
+            .register-wrapper {
+                width: 100%;
+                max-width: 440px;
+            }
+
+            .register-brand {
+                text-align: center;
+                margin-bottom: 22px;
+            }
+
+                .register-brand h1 {
+                    font-size: 38px;
+                    font-weight: 800;
+                    margin: 0;
+                    color: var(--text);
+                }
+
+                .register-brand span {
+                    color: var(--purple);
+                }
+
+                .register-brand p {
+                    color: var(--muted);
+                    font-size: 11px;
+                    letter-spacing: 2px;
+                    margin-top: 6px;
+                }
+
+            .register-card {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 12px 35px rgba(40, 25, 70, 0.08);
+            }
+
+                .register-card h2 {
+                    color: var(--text);
+                    font-size: 23px;
+                    margin: 0 0 8px;
+                }
+
+            .register-description {
+                color: var(--muted);
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+
+            .register-card label {
+                display: block;
+                margin: 14px 0 7px;
+                color: var(--text);
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            .register-card input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px;
+                border: 1px solid var(--border);
+                border-radius: 9px;
+                background: var(--bg);
+                color: var(--text);
+                outline-color: var(--purple);
+            }
+
+            .register-button {
+                width: 100%;
+                padding: 13px;
+                margin-top: 22px;
+                border: none;
+                border-radius: 9px;
+                background: var(--purple);
+                color: white;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+                .register-button:hover {
+                    background: var(--purple-dark);
+                }
+
+            .register-error {
+                color: #dc2626;
+                font-size: 13px;
+                margin-top: 14px;
+                text-align: center;
+            }
+
+            .register-login {
+                text-align: center;
+                color: var(--muted);
+                font-size: 13px;
+                margin-top: 20px;
+            }
+
+                .register-login a {
+                    color: var(--purple);
+                    font-weight: 600;
+                    text-decoration: none;
+                }
+
+            @@media (max-width: 480px) {
+                .register-card {
+                    padding: 23px;
+                }
+            }
+    </style>
+</head>
+
+<body>
+    <div class="register-wrapper">
+
+        <div class="register-brand">
+            <h1>Call-lect<span>.</span></h1>
+            <p>YOUR DIGITAL PHONEBOOK</p>
+        </div>
+
+        <div class="register-card">
+            <h2>Create Account</h2>
+
+            <p class="register-description">
+                Register to start organizing your contacts.
+            </p>
+
+            <form method="post">
+
+                <label>Full Name</label>
+                <input asp-for="FullName"
+                       placeholder="Enter your full name"
+                       maxlength="100"
+                       required />
+
+                <label>Username</label>
+                <input asp-for="Username"
+                       placeholder="Choose a username"
+                       minlength="3"
+                       maxlength="30"
+                       required />
+
+                <label>Email Address</label>
+                <input asp-for="Email"
+                       type="email"
+                       placeholder="Enter your email"
+                       maxlength="150"
+                       required />
+
+                <label>Password</label>
+                <input asp-for="Password"
+                       type="password"
+                       placeholder="Create a password"
+                       minlength="8"
+                       autocomplete="new-password"
+                       required />
+
+                <label>Confirm Password</label>
+                <input asp-for="ConfirmPassword"
+                       type="password"
+                       placeholder="Confirm your password"
+                       minlength="8"
+                       autocomplete="new-password"
+                       required />
+
+                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+                {
+                    <p class="register-error">@Model.ErrorMessage</p>
+                }
+
+                <button type="submit" class="register-button">
+                    Create Account
+                </button>
+
+            </form>
+
+            <div class="register-login">
+                Already have an account?
+                <a asp-page="/Login">Log in</a>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
